@@ -1,113 +1,93 @@
 
+---
+
+# AWS 3-Tier Java Web Application Deployment (POC)
+
+This project demonstrates deploying a **Java Spring MVC (JSP + MySQL)** application using a **3-tier architecture on AWS**.
 
 ---
 
-# AWS 3-Tier Java Web Application – Progress README
+## Architecture Overview
 
-## Project Overview
-
-This project demonstrates a **3-tier architecture deployment on AWS** using a **Java Spring MVC application** with **JSP**, **Apache Tomcat**, and **Amazon RDS MySQL**.
-
-The architecture follows:
-
-* **Web Tier** → (to be implemented)
-* **Application Tier** → Deployed
-* **Database Tier** → Deployed
+* **Web Tier**: Application Load Balancer (Public Subnets)
+* **Application Tier**: Ubuntu EC2 + Tomcat 10 (Private Subnet)
+* **Database Tier**: Amazon RDS MySQL (Private Subnet)
 
 ---
 
 ## Repository Structure
 
-```
+```text
 Java-Login-App/
-├── src/
-│   ├── main/
-│   │   ├── java/com/dpt/demo/
-│   │   │   ├── HomeController.java
-│   │   │   ├── login.java
-│   │   │   ├── register.java
-│   │   │   ├── MyWebAppApplication.java
-│   │   │   └── ServletInitializer.java
-│   │   ├── resources/
-│   │   │   └── application.properties
-│   │   └── webapp/pages/
-│   │       ├── login.jsp
-│   │       ├── register.jsp
-│   │       ├── home.jsp
-│   │       ├── confirm.jsp
-│   │       ├── fail.jsp
-│   │       └── user.jsp
-│   └── test/java/com/dpt/demo/
-│       └── MyWebAppApplicationTests.java
+├── src/main/java/com/dpt/demo
+│   ├── HomeController.java
+│   ├── login.java
+│   ├── register.java
+│   ├── MyWebAppApplication.java
+│   └── ServletInitializer.java
+│
+├── src/main/resources
+│   └── application.properties
+│
+├── src/main/webapp/pages
+│   ├── login.jsp
+│   ├── register.jsp
+│   ├── home.jsp
+│   ├── confirm.jsp
+│   ├── fail.jsp
+│   └── user.jsp
+│
+└── pom.xml
 ```
+
+> **Note**:
+> JSP files are server-side rendered views and are part of the **Application Tier**, not the Web Tier.
 
 ---
 
-## Architecture (Current Status)
+## Step 1: Network Infrastructure Setup
 
-```
-Application Tier  ✅  →  Tomcat + Spring MVC + JSP
-Database Tier     ✅  →  Amazon RDS MySQL
-Web Tier          ❌  →  Not deployed yet (ALB pending)
-```
+* Created a VPC with CIDR block
+* Created subnets across 2 Availability Zones:
 
----
+  * Public subnets (Web Tier)
+  * Private subnets (Application Tier)
+  * Private subnets (Database Tier)
+* Attached:
 
-## 1. Application Code Preparation (Completed)
+  * Internet Gateway (for public subnets)
+  * NAT Gateway (for private subnets)
+* Configured route tables:
 
-* Developed a **Spring MVC Java web application**
-* Controllers handle login and registration logic
-* JSP files provide the UI (View layer)
-* Application packaged as a **WAR file** for external Tomcat deployment
-
----
-
-## 2. Application Configuration (Completed)
-
-File:
-`src/main/resources/application.properties`
-
-Configured:
-
-```properties
-spring.mvc.view.prefix=/pages/
-spring.mvc.view.suffix=.jsp
-
-spring.datasource.url=jdbc:mysql://<RDS-ENDPOINT>:3306/UserDB
-spring.datasource.username=admin
-spring.datasource.password=Admin123
-```
-
-* JSP view resolution configured
-* Database connection configured for Amazon RDS MySQL
+  * Public → IGW
+  * App → NAT
+  * DB → No internet access
 
 ---
 
-## 3. Database Tier Deployment (Completed)
+## Step 2: Database Tier Deployment (RDS)
 
-* Amazon **RDS MySQL** created
+* Launched **Amazon RDS MySQL**
 * Database name: `UserDB`
+* Port: `3306`
 * Deployed in **private DB subnets**
-* Security Group rule:
+* Security Group:
 
+  ```text
+  Inbound: 3306 → App Tier Security Group
   ```
-  3306 → Application EC2 Security Group
-  ```
-* Public access disabled
 
 ---
 
-## 4. Application Tier EC2 Deployment (Completed)
+## Step 3: Application Tier EC2 Setup (Ubuntu)
 
-* Ubuntu EC2 instance launched in **private App subnet**
+### EC2 Details
+
+* Ubuntu EC2 instance
+* Deployed in **private App subnet**
 * No public IP assigned
-* Security group prepared for internal access
 
----
-
-## 5. Application Tier Software Setup (Completed)
-
-Installed on Ubuntu EC2:
+### Installed Required Packages
 
 ```bash
 sudo apt update
@@ -119,77 +99,145 @@ sudo apt install tomcat10 -y
 
 ---
 
-## 6. Application Deployment on Tomcat (Completed)
+## Step 4: Application Build & Deployment (WAR on Tomcat)
 
-Steps performed:
+### Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone <your-repository-url>
 cd Java-Login-App
+```
+
+### Build Application
+
+```bash
 mvn clean package
 ```
 
-WAR file generated:
-
-```
-target/dptweb-1.0.war
-```
-
-Deployed to Tomcat:
+### Deploy WAR to Tomcat
 
 ```bash
 sudo cp target/dptweb-1.0.war /var/lib/tomcat10/webapps/
 sudo systemctl restart tomcat10
 ```
 
+Application context path:
+
+```text
+/dptweb-1
+```
+
 ---
 
-## 7. Database Connectivity Verification (Completed)
+## Step 5: Application Configuration
 
-Tested DB access from App EC2:
+Configured database connection in:
+
+```text
+src/main/resources/application.properties
+```
+
+```properties
+spring.mvc.view.prefix=/pages/
+spring.mvc.view.suffix=.jsp
+
+spring.datasource.url=jdbc:mysql:<RDS-ENDPOINT>:3306/UserDB
+spring.datasource.username=admin
+spring.datasource.password=Admin123
+```
+
+---
+
+## Step 6: Database Connectivity Validation
 
 ```bash
+sudo apt install mysql-client -y
 mysql -h <RDS-ENDPOINT> -u admin -p
 ```
 
-* Successful connection confirms **App Tier → DB Tier connectivity**
+✔️ Successful login confirms App → DB connectivity.
 
 ---
 
-## 8. Local Application Validation (Completed)
-
-Verified Tomcat deployment:
+## Step 7: Local Application Validation (App Tier)
 
 ```bash
 curl -I http://localhost:8080/dptweb-1/
 ```
 
-* Tomcat responding
-* WAR deployed correctly
-* JSP pages accessible via context path
+✔️ Confirms:
+
+* Tomcat is running
+* WAR is deployed
+* JSP pages are accessible
 
 ---
 
-## Current Status Summary
+## Step 8: Web Tier Deployment (NEXT STEP)
 
-* ✅ Application Tier deployed on **private Ubuntu EC2**
-* ✅ Database Tier deployed using **Amazon RDS MySQL**
-* ❌ Web Tier (Application Load Balancer) **not yet deployed**
+The **Web Tier** is implemented using an **Application Load Balancer (ALB)**.
+
+### Steps to Complete Web Tier:
+
+1. Create a Target Group
+
+   * Type: Instance
+   * Protocol: HTTP
+   * Port: 8080
+   * Health check path:
+
+     ```text
+     /dptweb-1/
+     ```
+
+2. Register the App Tier EC2 in the target group
+
+3. Create an Application Load Balancer
+
+   * Internet-facing
+   * Public subnets (2 AZs)
+   * Listener: HTTP 80 → Target Group
+
+4. Update Security Groups
+
+   * ALB SG:
+
+     ```text
+     80 → 0.0.0.0/0
+     ```
+   * App EC2 SG:
+
+     ```text
+     8080 → ALB Security Group
+     ```
+
+5. Access application via:
+
+```text
+http://<ALB-DNS-NAME>/dptweb-1/
+```
 
 ---
 
-## One-Line Summary
+## Final Architecture Flow
 
-> The application and database tiers of a 3-tier AWS architecture have been successfully deployed using Tomcat on a private Ubuntu EC2 instance and Amazon RDS MySQL, with database connectivity verified.
+```text
+User Browser
+   ↓
+Application Load Balancer (Web Tier)
+   ↓
+Tomcat + JSP + Controllers (App Tier)
+   ↓
+Amazon RDS MySQL (DB Tier)
+```
 
 ---
 
-## Next Steps (Planned)
+## Interview-Ready Summary
 
-* Deploy **Web Tier** using Application Load Balancer
-* Connect ALB to Application Tier
-* Enable public access through ALB
-* Optional: HTTPS, Auto Scaling, Terraform
+> “I deployed a WAR-based Spring MVC application on Tomcat running on a private Ubuntu EC2 instance, connected it securely to Amazon RDS MySQL, and exposed the application using an Application Load Balancer in the web tier, forming a complete AWS 3-tier architecture.”
 
 ---
+
+
 
