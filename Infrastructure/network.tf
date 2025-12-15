@@ -7,7 +7,7 @@ resource "aws_internet_gateway" "igw" {
 }
 
 resource "aws_eip" "nat_eip"{
-    vpc = true
+    domain = "vpc"
 
     tags = {
         Name = "three_tier_nat_eip"
