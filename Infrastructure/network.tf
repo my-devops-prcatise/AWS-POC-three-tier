@@ -18,7 +18,7 @@ resource "aws_nat_gateway" "nat_gw"{
     allocation_id = aws_eip.nat_eip.id
     subnet_id     = aws_subnet.public_1.id # NAT lives in public subnet
 
-    tags{
+    tags = {
         name = "three_tier_nat_gateway"
     }
 }
